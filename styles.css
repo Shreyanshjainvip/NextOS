@@ -136,32 +136,130 @@ select {
 
 .desktop-icons {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 110px;
-  padding: 1rem 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.desktop-widgets {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  display: grid;
+  gap: 1rem;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.desktop-widget {
+  width: 240px;
+  min-height: 140px;
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.desktop-widget:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+  border-color: rgba(82, 215, 200, 0.3);
+}
+
+.widget-title {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.widget-clock-face {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 1.1rem;
+  padding: 0.9rem 0.5rem;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.widget-clock-face div:first-child {
+  font-size: 1.7rem;
+  font-weight: 700;
+}
+
+.widget-subtitle {
+  color: var(--muted);
+}
+
+.widget-calendar-preview {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.calendar-grid-header,
+.calendar-grid-small {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+}
+
+.calendar-grid-header span {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.calendar-cell-small {
+  display: grid;
+  place-items: center;
+  min-height: 28px;
+  border-radius: 10px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.85rem;
+}
+
+.calendar-cell-small--today {
+  background: rgba(82, 215, 200, 0.24);
+  color: white;
+}
+
+.calendar-cell-small--empty {
+  background: transparent;
 }
 
 .desktop-icon {
+  position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.6rem 0.4rem;
+  padding: 0.8rem 0.6rem;
   border-radius: 16px;
-  border: 1px solid transparent;
-  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text);
-  cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 
-.desktop-icon:hover {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 255, 255, 0.16);
-  transform: translateY(-1px);
+.desktop-icon:hover,
+.desktop-icon.is-dragging {
+  transform: translateY(-2px) scale(1.08);
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: 0 18px 56px rgba(82, 215, 200, 0.24);
+}
+
+.desktop-icon:hover .desktop-icon__glyph,
+.desktop-icon.is-dragging .desktop-icon__glyph {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 24px rgba(82, 215, 200, 0.36);
 }
 
 .desktop-icon__glyph {
@@ -195,6 +293,35 @@ select {
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: var(--shadow);
   overflow: hidden;
+  opacity: 0;
+  transform: scale(0.96);
+  animation: window-open 240ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.window.is-closing {
+  animation: window-close 160ms ease forwards;
+}
+
+@keyframes window-open {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes window-close {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 
 body.reduce-motion *,
@@ -233,6 +360,13 @@ body.reduce-motion *::after {
   border: 0;
   border-radius: 50%;
   cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+.traffic.is-pressed {
+  transform: translateY(1px) scale(0.92);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.18);
+  opacity: 0.92;
 }
 
 .traffic--close { background: #ff5f57; }

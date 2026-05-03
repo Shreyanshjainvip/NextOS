@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NextOS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="wallpaper-glow wallpaper-glow-left"></div>
+  <div class="wallpaper-glow wallpaper-glow-right"></div>
+
+  <header class="menu-bar">
+    <div class="menu-bar__left">
+      <button class="apple-button" id="missionControlButton" title="Show desktop">◉</button>
+      <span class="menu-bar__brand" id="brandLabel">NextOS</span>
+      <span class="menu-bar__active-app" id="activeAppLabel">Desktop</span>
+    </div>
+    <div class="menu-bar__center" id="statusMessage">Smooth browser desktop with real apps</div>
+    <div class="menu-bar__right">
+      <span id="dateTimeLabel"></span>
+    </div>
+  </header>
+
+  <main class="desktop" id="desktop">
+    <section class="desktop-icons" id="desktopIcons"></section>
+    <section class="window-layer" id="windowLayer" aria-live="polite"></section>
+  </main>
+
+  <footer class="dock-shell">
+    <div class="dock" id="dock" aria-label="Application dock"></div>
+  </footer>
+
+  <input type="file" id="wallpaperPicker" accept="image/*" hidden>
+
+  <template id="windowTemplate">
+    <article class="window">
+      <div class="window__header">
+        <div class="window__traffic">
+          <button class="traffic traffic--close" data-action="close" aria-label="Close"></button>
+          <button class="traffic traffic--minimize" data-action="minimize" aria-label="Minimize"></button>
+          <button class="traffic traffic--maximize" data-action="maximize" aria-label="Maximize"></button>
+        </div>
+        <div class="window__title"></div>
+      </div>
+      <div class="window__body"></div>
+      <div class="window__resize-handle" aria-hidden="true"></div>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

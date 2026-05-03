@@ -1,5 +1,13 @@
 const WALLPAPERS = [
   {
+    id: "nextos",
+    name: "NEXTOS",
+    desktop: "url('nextos-wallpaper.png') center / cover no-repeat fixed",
+    backgroundImage: true,
+    glowLeft: "#0055ff",
+    glowRight: "#ff00ff"
+  },
+  {
     id: "aurora",
     name: "NextOS Aurora",
     desktop: "radial-gradient(circle at 18% 18%, rgba(82, 215, 200, 0.34), transparent 24%), radial-gradient(circle at 82% 78%, rgba(255, 183, 77, 0.22), transparent 22%), linear-gradient(160deg, #0d2a55, #102019)",
@@ -60,7 +68,7 @@ const THEMES = {
 };
 
 const DEFAULT_PREFERENCES = {
-  wallpaperId: "aurora",
+  wallpaperId: "nextos",
   customWallpaper: "",
   theme: "glass",
   dockMode: "dock",
@@ -105,6 +113,7 @@ const appRegistry = {
   browser: { id: "browser", name: "Explorer", icon: "🌐", width: 980, height: 680, singleton: true, render: renderBrowser },
   calculator: { id: "calculator", name: "Calculator", icon: "🧮", width: 360, height: 560, singleton: true, render: renderCalculator },
   clock: { id: "clock", name: "Time", icon: "🕒", width: 720, height: 480, singleton: true, render: renderClock },
+  calendar: { id: "calendar", name: "Calendar", icon: "📆", width: 760, height: 560, singleton: true, render: renderCalendar },
   camera: { id: "camera", name: "Camera", icon: "📷", width: 900, height: 620, singleton: true, render: renderCamera },
   cards: { id: "cards", name: "Cards", icon: "🂡", width: 980, height: 690, singleton: true, render: renderCards },
   settings: { id: "settings", name: "Settings", icon: "⚙️", width: 920, height: 650, singleton: true, render: renderSettings },
@@ -112,9 +121,10 @@ const appRegistry = {
   bin: { id: "bin", name: "Bin", icon: "🗑", width: 700, height: 480, singleton: true, render: renderBin }
 };
 
-const desktopApps = ["finder", "browser", "calculator", "clock", "camera", "cards", "settings", "bin"];
+const desktopApps = ["finder", "browser", "calculator", "clock", "calendar", "camera", "cards", "settings", "bin"];
 const rootFolderIds = ["desktop", "documents", "downloads", "pictures"];
 const desktop = document.getElementById("desktop");
+const desktopWidgets = document.getElementById("desktopWidgets");
 const desktopIcons = document.getElementById("desktopIcons");
 const windowLayer = document.getElementById("windowLayer");
 const dock = document.getElementById("dock");
@@ -134,16 +144,60 @@ bindGlobalEvents();
 openApp("finder");
 
 function initDesktop() {
+  desktopWidgets.innerHTML = "";
   desktopIcons.innerHTML = "";
   dock.innerHTML = "";
   brandLabel.textContent = "NextOS";
 
-  desktopApps.forEach((appId) => {
+  desktopApps.forEach((appId, index) => {
     const app = appRegistry[appId];
     const icon = document.createElement("button");
     icon.className = "desktop-icon";
     icon.innerHTML = `<span class="desktop-icon__glyph">${app.icon}</span><span class="desktop-icon__label">${app.name}</span>`;
-    icon.addEventListener("dblclick", () => openApp(appId));
+    icon.dataset.appId = appId;
+    icon.style.left = `${32 + (index % 4) * 108}px`;
+    icon.style.top = `${32 + Math.floor(index / 4) * 118}px`;
+
+    icon.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      icon.setPointerCapture(event.pointerId);
+
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startLeft = parseFloat(icon.style.left || 0);
+      const startTop = parseFloat(icon.style.top || 0);
+      const desktopRect = desktop.getBoundingClientRect();
+      const maxLeft = desktopRect.width - icon.offsetWidth - 16;
+      const maxTop = desktopRect.height - icon.offsetHeight - 16;
+      let isDragging = false;
+
+      const move = (moveEvent) => {
+        const deltaX = moveEvent.clientX - startX;
+        const deltaY = moveEvent.clientY - startY;
+        if (!isDragging && Math.hypot(deltaX, deltaY) > 6) {
+          isDragging = true;
+          icon.classList.add("is-dragging");
+        }
+        if (!isDragging) return;
+        icon.style.left = `${Math.min(maxLeft, Math.max(0, startLeft + deltaX))}px`;
+        icon.style.top = `${Math.min(maxTop, Math.max(0, startTop + deltaY))}px`;
+      };
+
+      const up = () => {
+        icon.releasePointerCapture(event.pointerId);
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        icon.classList.remove("is-dragging");
+        if (!isDragging) {
+          openApp(appId);
+        }
+      };
+
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+    });
+
     desktopIcons.appendChild(icon);
 
     const dockButton = document.createElement("button");
@@ -157,6 +211,8 @@ function initDesktop() {
     dockButton.addEventListener("click", () => openApp(appId));
     dock.appendChild(dockButton);
   });
+
+  renderDesktopWidgets();
 }
 
 function bindGlobalEvents() {
@@ -189,7 +245,8 @@ function bindGlobalEvents() {
 function startClockTicker() {
   const update = () => {
     const now = new Date();
-    dateTimeLabel.textContent = "";
+    dateTimeLabel.textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    renderDesktopWidgets(now);
     renderOpenAppBodies("clock");
   };
   update();
@@ -227,6 +284,9 @@ function openApp(appId) {
   windowLayer.appendChild(fragment);
 
   const element = windowLayer.querySelector(`[data-window-id="${id}"]`);
+  element.classList.add("is-opening");
+  element.addEventListener("animationend", () => element.classList.remove("is-opening"), { once: true });
+
   const entry = { id, appId, element };
   state.openWindows.set(id, entry);
   focusWindow(id);
@@ -241,10 +301,14 @@ function wireWindowControls(windowEl, id) {
   windowEl.querySelectorAll(".traffic").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
+      button.classList.add("is-pressed");
       const action = button.dataset.action;
-      if (action === "close") closeWindow(id);
-      if (action === "minimize") minimizeWindow(id);
-      if (action === "maximize") toggleMaximize(id);
+      window.setTimeout(() => {
+        button.classList.remove("is-pressed");
+        if (action === "close") closeWindow(id);
+        if (action === "minimize") minimizeWindow(id);
+        if (action === "maximize") toggleMaximize(id);
+      }, 120);
     });
   });
 
@@ -266,7 +330,12 @@ function closeWindow(id) {
   const entry = state.openWindows.get(id);
   if (!entry) return;
   if (entry.appId === "camera") stopCameraStream();
-  entry.element.remove();
+  const element = entry.element;
+  if (element.classList.contains("is-closing")) return;
+  element.classList.add("is-closing");
+  element.addEventListener("animationend", () => {
+    element.remove();
+  }, { once: true });
   state.openWindows.delete(id);
   updateDockIndicators();
   const top = getTopWindow();
@@ -368,6 +437,8 @@ function applyPreferences() {
   const wallpaper = WALLPAPERS.find((item) => item.id === prefs.wallpaperId) || WALLPAPERS[0];
   if (prefs.wallpaperId === "gallery" && prefs.customWallpaper) {
     document.body.style.background = `linear-gradient(rgba(8, 15, 31, 0.18), rgba(8, 15, 31, 0.18)), url("${prefs.customWallpaper}") center / cover no-repeat fixed`;
+  } else if (wallpaper.backgroundImage) {
+    document.body.style.background = `linear-gradient(rgba(8, 15, 31, 0.1), rgba(8, 15, 31, 0.2)), ${wallpaper.desktop}`;
   } else {
     document.body.style.background = wallpaper.desktop;
   }
@@ -715,6 +786,103 @@ function renderClock(container) {
   `;
 }
 
+function renderCalendar(container) {
+  const now = new Date();
+  container.innerHTML = renderCalendarWidgetContent(now);
+}
+
+function renderCalendarWidgetContent(now) {
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  let calendarCells = "";
+
+  for (let i = 0; i < firstDay; i++) {
+    calendarCells += `<div class="calendar-cell calendar-cell--empty"></div>`;
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const isToday = day === now.getDate();
+    calendarCells += `<div class="calendar-cell${isToday ? " calendar-cell--today" : ""}">${day}</div>`;
+  }
+
+  const cellCount = firstDay + daysInMonth;
+  const emptyCells = (7 - (cellCount % 7)) % 7;
+  for (let i = 0; i < emptyCells; i++) {
+    calendarCells += `<div class="calendar-cell calendar-cell--empty"></div>`;
+  }
+
+  return `
+    <div class="calendar-shell">
+      <div class="calendar-header">
+        <div>
+          <div class="muted">${now.toLocaleDateString(undefined, { weekday: "long" })}</div>
+          <h2>${now.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}</h2>
+        </div>
+      </div>
+      <div class="calendar-grid-header">
+        ${dayNames.map((name) => `<span>${name}</span>`).join("")}
+      </div>
+      <div class="calendar-grid">
+        ${calendarCells}
+      </div>
+    </div>
+  `;
+}
+
+function renderDesktopWidgets(now = new Date()) {
+  if (!desktopWidgets) return;
+  desktopWidgets.innerHTML = `
+    <button class="desktop-widget desktop-widget--clock" type="button">
+      <div class="widget-title">Clock</div>
+      <div class="widget-clock-face">
+        <div>${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</div>
+        <div class="widget-subtitle">${now.toLocaleDateString()}</div>
+      </div>
+    </button>
+    <button class="desktop-widget desktop-widget--calendar" type="button">
+      <div class="widget-title">Calendar</div>
+      <div class="widget-calendar-preview">
+        <div class="calendar-grid-header">
+          ${["S","M","T","W","T","F","S"].map((day) => `<span>${day}</span>`).join("")}
+        </div>
+        <div class="calendar-grid-small">
+          ${buildCalendarPreview(now)}
+        </div>
+      </div>
+    </button>
+  `;
+  desktopWidgets.querySelector(".desktop-widget--clock").addEventListener("click", () => openApp("clock"));
+  desktopWidgets.querySelector(".desktop-widget--calendar").addEventListener("click", () => openApp("calendar"));
+}
+
+function buildCalendarPreview(now) {
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let cells = "";
+
+  for (let i = 0; i < firstDay; i++) {
+    cells += `<span class="calendar-cell-small calendar-cell-small--empty"></span>`;
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const isToday = day === now.getDate();
+    cells += `<span class="calendar-cell-small${isToday ? " calendar-cell-small--today" : ""}">${day}</span>`;
+  }
+
+  const totalCells = firstDay + daysInMonth;
+  const emptyCells = (7 - (totalCells % 7)) % 7;
+  for (let i = 0; i < emptyCells; i++) {
+    cells += `<span class="calendar-cell-small calendar-cell-small--empty"></span>`;
+  }
+
+  return cells;
+}
+
 function renderCamera(container) {
   container.innerHTML = `
     <div class="camera-layout">
@@ -811,7 +979,7 @@ function renderBrowser(container) {
           <button class="chip" data-url="https://www.wikipedia.org">Wikipedia</button>
           <button class="chip" data-url="https://news.ycombinator.com">Hacker News</button>
         </div>
-        <div class="muted">Some sites block iframe embedding. If that happens, use Search to open a live results page in a new browser tab.</div>
+        <div class="muted">just use search bar results.</div>
       </div>
       <div class="browser-frame">
         <iframe src="${escapeAttribute(state.browser.currentUrl)}" title="Browser frame"></iframe>
@@ -1122,9 +1290,14 @@ function renderSettings(container) {
   const prefs = state.preferences;
   const wallpaperCards = WALLPAPERS.map((wallpaper) => {
     const selected = wallpaper.id === prefs.wallpaperId;
-    const style = wallpaper.id === "gallery" && prefs.customWallpaper
-      ? `background-image: linear-gradient(rgba(8, 15, 31, 0.16), rgba(8, 15, 31, 0.16)), url('${prefs.customWallpaper}'); background-size: cover; background-position: center;`
-      : `background: ${wallpaper.desktop};`;
+    let style;
+    if (wallpaper.id === "gallery" && prefs.customWallpaper) {
+      style = `background-image: linear-gradient(rgba(8, 15, 31, 0.16), rgba(8, 15, 31, 0.16)), url('${prefs.customWallpaper}'); background-size: cover; background-position: center;`;
+    } else if (wallpaper.backgroundImage) {
+      style = `background-image: linear-gradient(rgba(8, 15, 31, 0.1), rgba(8, 15, 31, 0.2)), ${wallpaper.desktop}; background-size: cover; background-position: center;`;
+    } else {
+      style = `background: ${wallpaper.desktop};`;
+    }
     return `
       <button class="wallpaper-card ${selected ? "is-selected" : ""}" data-wallpaper-id="${wallpaper.id}">
         <span class="wallpaper-card__preview" style="${style}"></span>
@@ -1268,7 +1441,7 @@ function renderSettingsPanel(wallpaperCards, prefs) {
               <span>Transparent Menu Bar</span>
               <input id="menuBarToggle" type="checkbox" ${prefs.menuBarTransparent ? "checked" : ""}>
             </label>
-            <div class="status-box">The active app name and status area stay visible while the bar blends into the wallpaper like macOS.</div>
+            <div class="status-box">here u can change the menu bar settings.</div>
           </div>
         </div>
       </div>
@@ -1313,7 +1486,7 @@ function renderSettingsPanel(wallpaperCards, prefs) {
                 <input id="desktopIconsToggle" type="checkbox" ${prefs.desktopIcons ? "checked" : ""}>
               </label>
             </div>
-            <div class="status-box">Switching to taskbar mode gives you a more traditional launcher while keeping the same app windows and Finder behavior.</div>
+            <div class="status-box">You can show and unshow the icons , these are the settings of doc and deckstop</div>
           </div>
         </div>
       </div>
@@ -1349,7 +1522,7 @@ function renderSettingsPanel(wallpaperCards, prefs) {
         </div>
       </div>
       <div class="settings-footer">
-        <div class="status-box">NextOS now keeps the same core controls users expect from a polished desktop OS: appearance, dock behavior, visibility, clock detail, and comfort settings.</div>
+        <div class="status-box">here u can  change the preferences.</div>
         <button class="action-button" id="resetPreferencesButton">Reset Defaults</button>
       </div>
     </div>
